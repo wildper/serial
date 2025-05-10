@@ -1,29 +1,17 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(serial)
 
-# Find catkin
-find_package(catkin REQUIRED)
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+
+# Find ament dependencies
+find_package(ament_cmake REQUIRED)
 
 if(APPLE)
     find_library(IOKIT_LIBRARY IOKit)
     find_library(FOUNDATION_LIBRARY Foundation)
-endif()
-
-if(UNIX AND NOT APPLE)
-    # If Linux, add rt and pthread
-    set(rt_LIBRARIES rt)
-    set(pthread_LIBRARIES pthread)
-    catkin_package(
-        LIBRARIES ${PROJECT_NAME}
-        INCLUDE_DIRS include
-        DEPENDS rt pthread
-    )
-else()
-    # Otherwise normal call
-    catkin_package(
-        LIBRARIES ${PROJECT_NAME}
-        INCLUDE_DIRS include
-    )
 endif()
 
 ## Sources
@@ -48,6 +36,10 @@ endif()
 
 ## Add serial library
 add_library(${PROJECT_NAME} ${serial_SRCS})
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+  
 if(APPLE)
     target_link_libraries(${PROJECT_NAME} ${FOUNDATION_LIBRARY} ${IOKIT_LIBRARY})
 elseif(UNIX)
@@ -56,26 +48,31 @@ else()
     target_link_libraries(${PROJECT_NAME} setupapi)
 endif()
 
-## Uncomment for example
+## Example executable
 add_executable(serial_example examples/serial_example.cc)
-add_dependencies(serial_example ${PROJECT_NAME})
 target_link_libraries(serial_example ${PROJECT_NAME})
 
-## Include headers
-include_directories(include)
-
-## Install executable
-install(TARGETS ${PROJECT_NAME}
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+# Install rules
+install(TARGETS ${PROJECT_NAME} serial_example
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
-## Install headers
-install(FILES include/serial/serial.h include/serial/v8stdint.h
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/serial)
+install(DIRECTORY include/ DESTINATION include)
 
-## Tests
-if(CATKIN_ENABLE_TESTING)
-    add_subdirectory(tests)
+ament_export_include_directories(include)
+if(UNIX AND NOT APPLE)
+    ament_export_libraries(${PROJECT_NAME} rt pthread)
+else()
+    ament_export_libraries(${PROJECT_NAME})
 endif()
+
+# Tests
+if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
